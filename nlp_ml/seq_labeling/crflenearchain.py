@@ -113,3 +113,4 @@ class CrfLenearChain:
         grad = 0
         return weights - self.learning_rate * grad
 
+    a
