@@ -113,12 +113,3 @@ class CrfLenearChain:
         grad = 0
         return weights - self.learning_rate * grad
 
-    def calc_max_prev_y_table(self, case_x):
-        self.max_prev_y_table = [[() * len(self.labels)] for _ in
-                                 range(len(case_x))]
-
-        # - 100 means special label for first label index
-        for label_index in range(len(self.labels)):
-            self.max_prev_y_table[0][label_index] = (-100,
-                                                     self.wg_feature_vec(case_x,
-                                                                         self.labels[label_index], "B"))
