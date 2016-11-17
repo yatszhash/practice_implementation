@@ -10,6 +10,7 @@
 
 from sklearn import cross_validation
 from  sklearn import datasets
+from sklearn.preprocessing import StandardScaler
 
 if __name__ == "__main__":
     # In[123]:
@@ -27,7 +28,10 @@ if __name__ == "__main__":
     # In[126]:
 
     iris_X = iris.data[:100]
-
+    # Don't forget standarization or normalization
+    ss = StandardScaler()
+    iris_X = ss.fit_transform(iris_X)
+    # iris_X = np.repeat(iris_X, 10, axis=0)
     # In[127]:
 
     iris_X[:10]
@@ -35,6 +39,7 @@ if __name__ == "__main__":
     # In[128]:
 
     iris_Y = iris.target[:100]
+    #iris_Y = np.repeat(iris_Y, 10, axis=0)
 
     # In[129]:
 
@@ -81,13 +86,14 @@ if __name__ == "__main__":
     # In[139]:
 
     print(clf.predict(train_x))
+    print(train_y.reshape((1, len(train_y))))
 
     # In[140]:
 
     result = clf.predict(test_x)
 
     # In[141]:
-
+    print("w: {}".format(clf.w))
     print(result)
 
     import sklearn.metrics as metrics

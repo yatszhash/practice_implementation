@@ -1,3 +1,1 @@
-﻿これは”言語学習のための機械学習入門”（コロナ社）の内容を
-pythonで実装してみたものです。
-
+﻿This rename will be renamed.
