@@ -2,7 +2,7 @@ import itertools
 
 import numpy as np
 
-
+'''
 class CrfLenearChain:
     """
     this implementation doesn't work.
@@ -112,4 +112,4 @@ class CrfLenearChain:
     def update_weights(self, weights, ):
         grad = 0
         return weights - self.learning_rate * grad
-
+'''
