@@ -11,7 +11,6 @@ class L1RegSVM:
         self.w = None
         self.initial_w = None
 
-    # TODO add intercept
     def loss(self, x, y, w):
         return np.maximum(1 - y * np.dot(x, w), 0)
 
