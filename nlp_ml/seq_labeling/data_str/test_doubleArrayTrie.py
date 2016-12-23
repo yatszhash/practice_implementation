@@ -1,4 +1,5 @@
 import unittest
+from collections import OrderedDict
 from unittest import TestCase
 
 from seq_labeling.data_str.DoubleArrayTrie import DoubleArrayTrie
@@ -22,18 +23,18 @@ class TestDoubleArrayTrie(TestCase):
 
         self.sut.base_array[0, 102] = 8
         self.sut.base_array[0, 103] = 9
-        self.sut.is_dics[0, 102] = 1
-        self.sut.is_dics[0, 103] = 1
+        self.sut.is_word_ends[0, 102] = 1
+        self.sut.is_word_ends[0, 103] = 1
 
         self.sut.base_array[0, 99] = 2  # node 98, b
-        self.sut.is_dics[0, 99] = 1
+        self.sut.is_word_ends[0, 99] = 1
 
         self.sut.base_array[0, 101] = 7  # node 98, d
-        self.sut.is_dics[0, 101] = 1
+        self.sut.is_word_ends[0, 101] = 1
         self.sut.check_array[0, 104] = 101  # a path
 
         self.sut.base_array[0, 104] = 10
-        self.sut.is_dics[0, 104] = 1
+        self.sut.is_word_ends[0, 104] = 1
 
     def test_move_child_found(self):
         input_n = 98
@@ -99,7 +100,7 @@ class TestDoubleArrayTrieGenerate(TestCase):
             "cat"
         ]
 
-        self.sut.add_all(words)
+        self.sut.add_all_statically(words)
 
         self.assertTrue(self.sut.common_prefix_search("bird"))
         self.assertTrue(self.sut.common_prefix_search("bison"))
@@ -122,12 +123,81 @@ class TestDoubleArrayTrieGenerate(TestCase):
             "ひょうろん": 3
         }
 
-        self.sut.add_all(words.keys())
+        self.sut.add_all_statically(words.keys())
 
         for word, size in words.items():
             result = self.sut.common_prefix_search(word)
             self.assertEquals(len(result), size)
 
+    def test_get_word(self):
+        words = {
+            "う": 1,
+            "ぎ": 1,
+            "し": 1,
+            "ひ": 1,
+            "うし": 2,
+            "ぎじ": 2,
+            "しゃ": 2,
+            "うろん": 2,
+            "ひょう": 2,
+            "ぎじゅつ": 3,
+            "ひょうか": 3,
+            "ひょうろん": 3
+        }
+
+        self.sut.add_all_statically(words.keys())
+
+        node_num = 12437
+        actual = self.sut.get_word(node_num)
+
+        self.assertEquals(actual, "ひょうろん")
+
+    def test_add_dynamicaly(self):
+        words = OrderedDict(
+            (("う", 1),
+             ("ぎ", 1),
+             ("し", 1),
+             ("ひ", 1),
+             ("うし", 2),
+             ("ぎじ", 2),
+             ("しゃ", 2),
+             ("うろん", 2),
+             ("ひょう", 2),
+             ("ぎじゅつ", 3),
+             ("ひょうか", 3),
+             ("ひょうろん", 3),
+             ("うろんな", 3),
+             ("ひょうろう", 3),
+             ("ひょうろんか", 4))
+        )
+        words_list = list(words.keys())
+        self.sut.add_all_statically(words_list[:-3])
+
+        result = self.sut.common_prefix_search("ひょうろん")
+        self.assertEquals(len(result), 3)
+
+        new_word1 = words_list[-3]
+        self.sut.add_dynamically(new_word1)
+
+        result = self.sut.common_prefix_search("ひょうろん")
+        self.assertEquals(len(result), 3)
+
+        new_word2 = words_list[-2]
+        self.sut.add_dynamically(new_word2)
+
+        result = self.sut.common_prefix_search("ひょうろん")
+        self.assertEquals(len(result), 3)
+
+        new_word3 = words_list[-1]
+        self.sut.add_dynamically(new_word3)
+
+        result = self.sut.common_prefix_search("ひょうろん")
+        self.assertEquals(len(result), 3)
+
+        for word, size in words.items():
+            result = self.sut.common_prefix_search(word)
+            print(word)
+            self.assertEquals(len(result), size)
 
 if __name__ == '__main__':
     unittest.main()

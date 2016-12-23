@@ -11,6 +11,10 @@ class L1RegSVM:
         self.w = None
         self.initial_w = None
 
+        # for fast fobos
+        self.last_updated = {}
+        self.update_count = 0
+
     def loss(self, x, y, w):
         return np.maximum(1 - y * np.dot(x, w), 0)
 
@@ -89,6 +93,13 @@ class L1RegSVM:
         new_w = vfunc(w_with_loss, self.fobos_eta * self.c)
 
         return new_w
+
+    def update_w_with_fast_fobos(self, x_k, y, w):
+        pass
+
+    def apply_regularization(self, x_k, y, w):
+        pass
+
 
     def predict(self, test_X):
         X = np.c_[np.ones((test_X.shape[0], 1)), test_X]

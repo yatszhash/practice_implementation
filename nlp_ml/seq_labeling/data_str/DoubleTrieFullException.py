@@ -1,0 +1,2 @@
+class DoubleTrieFullException(Exception):
+    pass
