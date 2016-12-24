@@ -55,6 +55,22 @@ class L1RegSVM:
     def learn_each(self, x_k, y, w):
         return w - self.eta * self.grad(x_k, y, w)
 
+    def fit(self, train_X, train_Y, method="FOBOS"):
+        X = np.c_[np.ones((train_X.shape[0], 1)), train_X]
+        X = train_X
+        if self.initial_w is None:
+            self.initial_w = np.zeros((X.shape[1], 1))
+
+        Y = train_Y
+        if not np.setdiff1d(np.unique(Y), np.array([0, 1])).size:
+            Y = self.convert_from_binary(Y)
+        if method == "FOBOS":
+            self.w = self.learn_all_with_FOBOS(X, Y, self.initial_w)
+        elif method == "F-FOBOS":
+            self.w = self.learn_all_with_fast_FOBOS(X, Y, self.initial_w)
+        else:
+            self.w = self.learn_all(X, Y, self.initial_w)
+
     def learn_all(self, dataset_x, dataset_y, initial_w):
         w = initial_w
 
@@ -71,20 +87,6 @@ class L1RegSVM:
 
         return w
 
-    def fit(self, train_X, train_Y, method="FOBOS"):
-        X = np.c_[np.ones((train_X.shape[0], 1)), train_X]
-        X = train_X
-        if self.initial_w is None:
-            self.initial_w = np.zeros((X.shape[1], 1))
-
-        Y = train_Y
-        if not np.setdiff1d(np.unique(Y), np.array([0, 1])).size:
-            Y = self.convert_from_binary(Y)
-        if method == "FOBOS":
-            self.w = self.learn_all_with_FOBOS(X, Y, self.initial_w)
-        else:
-            self.w = self.learn_all(X, Y, self.initial_w)
-
     def update_w_with_fobos(self, x_k, y, w):
         x_k = x_k.reshape(len(x_k), 1)
         y = y.reshape(len(y), 1)
@@ -94,12 +96,36 @@ class L1RegSVM:
 
         return new_w
 
-    def update_w_with_fast_fobos(self, x_k, y, w):
-        pass
+    def learn_all_with_fast_FOBOS(self, dataset_x, dataset_y, w):
+        self.last_updated = [0 for _ in range(w.shape[0])]
+        self.update_count = 0
 
-    def apply_regularization(self, x_k, y, w):
-        pass
+        for i in range(dataset_y.shape[0]):
+            w = self.update_w_with_fobos(dataset_x[i, :], dataset_y[i, :], w)
+        return w
 
+    def update_w_with_fast_FOBOS(self, x, y, w):
+        self.apply_regularization(x, w)
+
+        w_grad = self.get_loss_term(w, x, y, w)
+        w += w_grad
+
+        self.apply_last_updated(w_grad)
+        return w
+
+    def apply_regularization(self, x, w):
+        for idx, x_k in enumerate(x):
+            if x_k:
+                d = 0
+                if self.last_updated[idx, 1]:
+                    d = self.last_updated[idx, 1]
+                w[idx, 1] = self.clip(w[idx, 1], self.c * self.fobos_eta
+                                      * (self.update_count - d))
+
+    def apply_last_updated(self, w_grad):
+        for idx, w_grad_k in enumerate(w_grad):
+            if w_grad_k:
+                self.last_updated[idx] = self.update_count
 
     def predict(self, test_X):
         X = np.c_[np.ones((test_X.shape[0], 1)), test_X]
