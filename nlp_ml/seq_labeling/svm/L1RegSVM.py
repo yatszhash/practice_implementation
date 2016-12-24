@@ -4,12 +4,13 @@ ALMOST_ZERO = 1.0e-15
 
 
 class L1RegSVM:
-    def __init__(self, eta, c):
+    def __init__(self, eta, c, random_state=None):
         self.eta = eta
         self.fobos_eta = eta
         self.c = c
         self.w = None
         self.initial_w = None
+        self.random_state = random_state
 
         # for fast fobos
         self.last_updated = {}
@@ -64,12 +65,22 @@ class L1RegSVM:
         Y = train_Y
         if not np.setdiff1d(np.unique(Y), np.array([0, 1])).size:
             Y = self.convert_from_binary(Y)
+
+        X, Y = self.shuffle_dataset(X, Y)
+
         if method == "FOBOS":
             self.w = self.learn_all_with_FOBOS(X, Y, self.initial_w)
         elif method == "F-FOBOS":
             self.w = self.learn_all_with_fast_FOBOS(X, Y, self.initial_w)
         else:
             self.w = self.learn_all(X, Y, self.initial_w)
+
+    def shuffle_dataset(self, X, Y):
+        np.random.seed(self.random_state)
+        shuffled_indice = np.arange(X.shape[0])
+        np.random.shuffle(shuffled_indice)
+
+        return X[shuffled_indice, :], Y[shuffled_indice, :]
 
     def learn_all(self, dataset_x, dataset_y, initial_w):
         w = initial_w
