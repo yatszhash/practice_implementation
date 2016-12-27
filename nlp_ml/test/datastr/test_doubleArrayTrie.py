@@ -10,31 +10,31 @@ class TestDoubleArrayTrie(TestCase):
         self.sut = DoubleArrayTrie()
 
         # words are 102: "ab", 103: "ac", 99: "b", 101: 'd', 104: "da"
-        self.sut.base_array[0, DoubleArrayTrie.HEAD_NODE_ID] \
+        self.sut._base_array[0, DoubleArrayTrie.HEAD_NODE_ID] \
             = DoubleArrayTrie.HEAD_NODE_BASE  # head node
 
-        self.sut.check_array[0, 98] = DoubleArrayTrie.HEAD_NODE_ID  # a path
-        self.sut.check_array[0, 99] = DoubleArrayTrie.HEAD_NODE_ID  # b path
-        self.sut.check_array[0, 101] = DoubleArrayTrie.HEAD_NODE_ID  # d path
+        self.sut._check_array[0, 98] = DoubleArrayTrie.HEAD_NODE_ID  # a path
+        self.sut._check_array[0, 99] = DoubleArrayTrie.HEAD_NODE_ID  # b path
+        self.sut._check_array[0, 101] = DoubleArrayTrie.HEAD_NODE_ID  # d path
 
-        self.sut.base_array[0, 98] = 4  # node 97, a
-        self.sut.check_array[0, 102] = 98  # b path
-        self.sut.check_array[0, 103] = 98  # c path
+        self.sut._base_array[0, 98] = 4  # node 97, a
+        self.sut._check_array[0, 102] = 98  # b path
+        self.sut._check_array[0, 103] = 98  # c path
 
-        self.sut.base_array[0, 102] = 8
-        self.sut.base_array[0, 103] = 9
-        self.sut.is_word_ends[0, 102] = 1
-        self.sut.is_word_ends[0, 103] = 1
+        self.sut._base_array[0, 102] = 8
+        self.sut._base_array[0, 103] = 9
+        self.sut._is_word_ends[0, 102] = 1
+        self.sut._is_word_ends[0, 103] = 1
 
-        self.sut.base_array[0, 99] = 2  # node 98, b
-        self.sut.is_word_ends[0, 99] = 1
+        self.sut._base_array[0, 99] = 2  # node 98, b
+        self.sut._is_word_ends[0, 99] = 1
 
-        self.sut.base_array[0, 101] = 7  # node 98, d
-        self.sut.is_word_ends[0, 101] = 1
-        self.sut.check_array[0, 104] = 101  # a path
+        self.sut._base_array[0, 101] = 7  # node 98, d
+        self.sut._is_word_ends[0, 101] = 1
+        self.sut._check_array[0, 104] = 101  # a path
 
-        self.sut.base_array[0, 104] = 10
-        self.sut.is_word_ends[0, 104] = 1
+        self.sut._base_array[0, 104] = 10
+        self.sut._is_word_ends[0, 104] = 1
 
     def test_move_child_found(self):
         input_n = 98
@@ -198,6 +198,57 @@ class TestDoubleArrayTrieGenerate(TestCase):
             result = self.sut.common_prefix_search(word)
             print(word)
             self.assertEquals(len(result), size)
+
+    def test_transfer_node_into_empty(self):
+        sut = DoubleArrayTrie()
+        sut._base_array[0, 1] = 1
+
+    def test_transfer_node(self):
+        sut = DoubleArrayTrie()
+        sut._base_array[0, 1] = 1
+
+        sut._check_array[0, 2] = 1
+        sut._check_array[0, 10] = 1
+        sut._check_array[0, 100] = 1
+
+        sut._base_array[0, 2] = 1
+        sut._check_array[0, 3] = 2  # k = 2
+        sut._check_array[0, 4] = 2  # k = 3
+        sut._check_array[0, 9] = 2  # k = 8
+
+        sut._is_word_ends[0, 3] = True
+        sut._is_word_ends[0, 4] = False
+        sut._is_word_ends[0, 9] = True
+
+        # transfer \#2 node's children
+        sut._current_transfer_parent = 2
+        sut._current_transfer_children = sut.compute_all_child_nodes(2)
+        sut._current_transfer_ks = [child - sut._base_array[0, 2] for child
+                                    in sut._current_transfer_children]
+
+        old_start_node = 3
+        new_start_node = 13
+        sut._transfer_node(old_start_node, new_start_node)
+
+        self.assertEquals(sut._base_array[0, 2], 11)
+
+        # check new nodes
+        self.assertEquals(sut._check_array[0, 13], 2)
+        self.assertEquals(sut._check_array[0, 14], 2)
+        self.assertEquals(sut._check_array[0, 19], 2)
+
+        self.assertTrue(sut.is_word_id(13))
+        self.assertFalse(sut.is_word_id(14))
+        self.assertTrue(sut.is_word_id(19))
+
+        # check old nodes
+        self.assertEquals(sut._check_array[0, 3], DoubleArrayTrie.NOT_FOUND)
+        self.assertEquals(sut._check_array[0, 4], DoubleArrayTrie.NOT_FOUND)
+        self.assertEquals(sut._check_array[0, 9], DoubleArrayTrie.NOT_FOUND)
+
+        self.assertFalse(sut.is_word_id(3))
+        self.assertFalse(sut.is_word_id(4))
+        self.assertFalse(sut.is_word_id(9))
 
 if __name__ == '__main__':
     unittest.main()

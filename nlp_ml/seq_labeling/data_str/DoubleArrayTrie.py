@@ -13,25 +13,31 @@ class DoubleArrayTrie:
     CHAR_MAX_ORDINAL = 65536
 
     def __init__(self):
-        self.base_array = lil_matrix((1, DoubleArrayTrie.INITIAL_SIZE),
-                                     dtype=np.int64)
-        self.check_array = lil_matrix((1, DoubleArrayTrie.INITIAL_SIZE),
-                                      dtype=np.int64)
 
-        self.is_word_ends = lil_matrix((1, DoubleArrayTrie.INITIAL_SIZE),
+        # TODO replace with byte array
+        self._base_array = lil_matrix((1, DoubleArrayTrie.INITIAL_SIZE),
+                                      dtype=np.int64)
+        self._check_array = lil_matrix((1, DoubleArrayTrie.INITIAL_SIZE),
                                        dtype=np.int64)
 
+        self._is_word_ends = lil_matrix((1, DoubleArrayTrie.INITIAL_SIZE),
+                                        dtype=np.int64)
+
+        self._current_transfer_parent = 0
+        self._current_transfer_children = []
+        self._current_transfer_ks = []
+
     def get_word(self, node_num):
-        if not self.is_word_ends[0, node_num]:
+        if not self._is_word_ends[0, node_num]:
             return None
 
         m = node_num
         nodes = []
 
         while True:
-            parent = self.check_array[0, m]
+            parent = self._check_array[0, m]
 
-            nodes.append(m - self.base_array[0, parent])
+            nodes.append(m - self._base_array[0, parent])
 
             if parent == 1:
                 break
@@ -46,10 +52,10 @@ class DoubleArrayTrie:
         return word
 
     def get_base(self, n):
-        return self.base_array[0, n]
+        return self._base_array[0, n]
 
     def get_check(self, m):
-        return self.check_array[0, m]
+        return self._check_array[0, m]
 
     def move_child(self, n, ch):
         k = ord(ch)
@@ -76,7 +82,7 @@ class DoubleArrayTrie:
         return result
 
     def is_word_id(self, n):
-        return self.is_word_ends[0, n]
+        return self._is_word_ends[0, n]
 
     def add_all_statically(self, words):
         sorted_words = sorted(words)
@@ -94,17 +100,17 @@ class DoubleArrayTrie:
         k_min = np.min(ks)
 
         is_added = False
-        for i in range(k_min + 1, self.check_array.shape[1]):
-            if self.check_array[0, i] == DoubleArrayTrie.NOT_FOUND:
-                if all([self.check_array[0, i + k_j - k_min]
+        for i in range(k_min + 1, self._check_array.shape[1]):
+            if self._check_array[0, i] == DoubleArrayTrie.NOT_FOUND:
+                if all([self._check_array[0, i + k_j - k_min]
                                 == DoubleArrayTrie.NOT_FOUND for k_j in ks]):
-                    self.base_array[0, n] = i - k_min
+                    self._base_array[0, n] = i - k_min
                     for k_j in ks:
-                        self.check_array[0, i + k_j - k_min] = n
+                        self._check_array[0, i + k_j - k_min] = n
                     is_added = True
 
                     for j in range(len(ks)):
-                        self.is_word_ends[0, i + ks[j] - k_min] = int(dict_flags[j])
+                        self._is_word_ends[0, i + ks[j] - k_min] = int(dict_flags[j])
                         self.add_nodes_statically(i + ks[j] - k_min, classified_words[j])
                     break
 
@@ -117,95 +123,101 @@ class DoubleArrayTrie:
         if word == "":
             return
 
-        m = self.base_array[0, n] + ord(word[0])
+        m = self._base_array[0, n] + ord(word[0])
 
         next_parent_node = None
         # not registered yet
-        if self.check_array[0, m] == DoubleArrayTrie.NOT_FOUND:
-            self.check_array[0, m] = n
+        if self._check_array[0, m] == DoubleArrayTrie.NOT_FOUND:
+            self._check_array[0, m] = n
             next_parent_node = m
 
         # already registered same node
-        elif self.check_array[0, m] == n:
+        elif self._check_array[0, m] == n:
             next_parent_node = m
 
         # already registered but conflict
-        elif self.check_array[0, m] != n:
-            conflict_n = self.check_array[0, m]
+        elif self._check_array[0, m] != n:
+            conflict_n = self._check_array[0, m]
             n_children = self.compute_all_child_nodes(n)
             conflict_n_children = self.compute_all_child_nodes(conflict_n)
 
             if len(n_children) < len(conflict_n_children):
-                next_parent_node = self.transfer_node(n, word[0])
+                next_parent_node = self.transfer_node_into_empty(n, word[0])
 
             else:
-                self.transfer_node(conflict_n)
-                self.check_array[0, m] = n
+                self.transfer_node_into_empty(conflict_n)
+                self._check_array[0, m] = n
                 next_parent_node = m
 
         if len(word) == 1:
-            self.is_word_ends[0, next_parent_node] = True
+            self._is_word_ends[0, next_parent_node] = True
             return
 
         self.add_node_dynamically(next_parent_node, word[1:])
 
         return
 
-    def transfer_node(self, n, add_node_char=None):
-        children = self.compute_all_child_nodes(n)
-        ks = [child - self.base_array[0, n] for child in children]
+    def transfer_node_into_empty(self, n, add_node_char=None):
+        self._current_transfer_parent = n
+        self._current_transfer_children = self.compute_all_child_nodes(n)
+        self._current_transfer_ks = \
+            [child - self._base_array[0, n] for child
+             in self._current_transfer_children]
 
-        old_start_node = min(children)
-        max_node = max(children)
-        k_min = min(ks)
-        k_max = min(ks)
+        old_start_node = min(self._current_transfer_children)
+        max_node = max(self._current_transfer_children)
+        k_min = min(self._current_transfer_ks)
+        k_max = max(self._current_transfer_ks)
 
         add_k = -1
         if add_node_char:
             add_k = ord(add_node_char)
 
         for new_start_node in range(max_node + 1,
-                                    self.check_array.shape[1] - k_max):
+                                    self._check_array.shape[1] - k_max):
 
-            if all([self.check_array[0, new_start_node + k - k_min]
-                            == DoubleArrayTrie.NOT_FOUND for k in ks]):
+            if all([self._check_array[0, new_start_node + k - k_min]
+                            == DoubleArrayTrie.NOT_FOUND for k in self._current_transfer_ks]):
 
                 if add_k > 0 \
-                        and self.check_array[0, new_start_node + add_k - k_min] \
+                        and self._check_array[0, new_start_node + add_k - k_min] \
                                 != DoubleArrayTrie.NOT_FOUND:
                     continue
 
-                self.base_array[0, n] = new_start_node - k_min
-                self.transfer_children(k_max, k_min,
-                                       new_start_node, old_start_node, n)
+                self._transfer_node(old_start_node, new_start_node)
 
                 if add_k > 0:
                     new_added_node = new_start_node + add_k - k_min
-                    self.check_array[0, new_added_node] = n
+                    self._check_array[0, new_added_node] = n
                     return new_added_node
 
                 return None
 
         raise DoubleTrieFullException()
 
-    def transfer_children(self, k_max, k_min, new_start_node,
-                          old_start_node, n):
+    def _transfer_node(self, old_start_node, new_start_node):
         # add children in new places
-        for k_offset in range(0, k_max - k_min + 1):
+        k_min = min(self._current_transfer_ks)
+        k_offsets = [k - k_min for k in self._current_transfer_ks]
+
+        self._base_array[0, self._current_transfer_parent] \
+            = new_start_node - k_min
+
+        for k_offset in k_offsets:
             new_node = new_start_node + k_offset
             old_node = old_start_node + k_offset
-            self.check_array[0, new_node] = n
-            self.base_array[0, new_node] = self.base_array[0, old_node]
-            self.is_word_ends[0, new_node] = self.is_word_ends[0, old_node]
+            self._check_array[0, new_node] = self._current_transfer_parent
+            self._base_array[0, new_node] = self._base_array[0, old_node]
+            self._is_word_ends[0, new_node] = self._is_word_ends[0, old_node]
 
-            self.check_array[0, old_node] = DoubleArrayTrie.NOT_FOUND
-            self.base_array[0, old_node] = DoubleArrayTrie.NOT_FOUND
-            self.is_word_ends[0, old_node] = False
+            self._check_array[0, old_node] = DoubleArrayTrie.NOT_FOUND
+            self._base_array[0, old_node] = DoubleArrayTrie.NOT_FOUND
+            self._is_word_ends[0, old_node] = False
 
     def compute_all_child_nodes(self, n):
-        return [self.base_array[0, n] + k
+        return [self._base_array[0, n] + k
                 for k in range(1, DoubleArrayTrie.CHAR_MAX_ORDINAL)
-                if self.check_array[0, self.base_array[0, n] + k] == n]
+                if self._check_array[0, self._base_array[0, n] + k] == n]
 
     def classify_with_head(self, words):
         head_chars = sorted(set(map(lambda x: x[0], words)))
