@@ -111,3 +111,28 @@ class TestClusteringWithNMD(TestCase):
         actual = sut._comute_new_cluster_avgs()
 
         np.testing.assert_array_almost_equal(actual, expected)
+
+    def test__compute_new_cluster_prob(self):
+        sut = ClusteringWithNMD()
+        sut._train_X = np.array([[1, 4, 7, 10],
+                                 [2, 5, 8, 11],
+                                 [3, 6, 9, 12]])
+
+        sut._dimension = 4
+        sut._dataset_size = 3
+        sut._num_clusters = 2
+
+        sut._current_std = 2
+        sut._posterior_probs_on_param = np.array([
+            [1 / 2, 1 / 2],
+            [1 / 4, 3 / 4],
+            [2 / 5, 3 / 5]
+        ])
+
+        expected = np.array([
+            [23 / 60, 37 / 60]
+        ])
+
+        actual = sut._compute_new_cluster_prob()
+
+        np.testing.assert_array_almost_equal(actual, expected)

@@ -1,0 +1,2 @@
+class IllegalLearningException(Exception):
+    pass

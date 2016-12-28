@@ -1,4 +1,8 @@
+import sys
+
 import numpy as np
+
+from seq_labeling.clustering.IllegalLearningException import IllegalLearningException
 
 
 class ClusteringWithNMD:
@@ -8,7 +12,7 @@ class ClusteringWithNMD:
     '''
 
     def __init__(self):
-        self.max_iter = 400
+        self._max_iter = 400
 
         self._train_X = None
         self._train_Y = None
@@ -24,14 +28,40 @@ class ClusteringWithNMD:
 
         self._posterior_probs_on_param = None
 
+        self._previous_log_likelihood = -sys.maxsize
+
+        self._stop_threshold = 1e-4
+
     def fit(self, X, Y, num_clusters=10, random_state=None):
         self._num_clusters = num_clusters
         self._random_state = random_state
 
         self._init_params()
 
-        self._posterior_probs_on_param = np.zeros((self._dataset_size,
-                                                   self._num_clusters))
+        for _ in range(self._max_iter):
+            isLearningEnd = self._each_step()
+
+            if isLearningEnd:
+                break
+
+    def get_learning_result(self):
+        return np.copy(self._posterior_probs_on_param)
+
+    def _each_step(self):
+        self._update_all_posterior_probs()
+        self._update_params()
+
+        log_liklihood = np.log(self._posterior_probs_on_param.sum(axis=1)) \
+            .sum(axis=0)
+
+        if log_liklihood < self._previous_log_likelihood:
+            raise IllegalLearningException()
+
+        if log_liklihood - self._previous_log_likelihood \
+                <= self._stop_threshold:
+            return True
+
+        return False
 
     def _init_params(self):
         np.random.seed(self._random_state)
@@ -123,5 +153,5 @@ class ClusteringWithNMD:
     def _compute_new_cluster_prob(self):
         return np.apply_along_axis(
             lambda col: col.sum() / self._dataset_size,
-            1,
-            self._posterior_probs_on_param)
+            0,
+            self._posterior_probs_on_param).reshape(1, self._num_clusters)
