@@ -1,5 +1,3 @@
-import sys
-
 import numpy as np
 
 from seq_labeling.clustering.IllegalLearningException import IllegalLearningException
@@ -15,7 +13,6 @@ class ClusteringWithNMD:
         self._max_iter = 400
 
         self._train_X = None
-        self._train_Y = None
 
         self._dataset_size = None
         self._dimension = None
@@ -28,13 +25,17 @@ class ClusteringWithNMD:
 
         self._posterior_probs_on_param = None
 
-        self._previous_log_likelihood = -sys.maxsize
+        self._previous_log_likelihood = -10000
 
         self._stop_threshold = 1e-4
 
-    def fit(self, X, Y, num_clusters=10, random_state=None):
+    def fit(self, X, num_clusters=10, random_state=None):
         self._num_clusters = num_clusters
         self._random_state = random_state
+        self._dimension = X.shape[1]
+        self._dataset_size = X.shape[0]
+
+        self._train_X = X
 
         self._init_params()
 
@@ -44,6 +45,16 @@ class ClusteringWithNMD:
             if isLearningEnd:
                 break
 
+    def predict(self, X):
+        return np.apply_along_axis(self._predict_each_x, 0, X)
+
+    def _predict_each_x(self, x):
+        vfunc = lambda c_idx: self._compute_posterior_prob(x, c_idx)
+        # sum doesn't need.
+        probs = np.apply_along_axis(vfunc, 1, np.arange(self._num_clusters))
+
+        return probs.argmax(1)
+
     def get_learning_result(self):
         return np.copy(self._posterior_probs_on_param)
 
@@ -51,10 +62,11 @@ class ClusteringWithNMD:
         self._update_all_posterior_probs()
         self._update_params()
 
+        # TODO this is not correct liklihood
         log_liklihood = np.log(self._posterior_probs_on_param.sum(axis=1)) \
             .sum(axis=0)
 
-        if log_liklihood < self._previous_log_likelihood:
+        if log_liklihood <= self._previous_log_likelihood:
             raise IllegalLearningException()
 
         if log_liklihood - self._previous_log_likelihood \
@@ -81,7 +93,7 @@ class ClusteringWithNMD:
         self._current_cluster_avgs = 2 * rands * x_stds[None, :] + x_avgs
 
     def _init_cluster_probs(self):
-        self._current_cluster_probs = np.ones((self._num_clusters, 1)) \
+        self._current_cluster_probs = np.ones((1, self._num_clusters)) \
                                       * 1 / self._num_clusters
 
     def _init_std(self):
@@ -102,7 +114,11 @@ class ClusteringWithNMD:
         posterior_probs = np.apply_along_axis(vfunc, 1,
                                               np.arange(self._num_clusters)
                                               .reshape(1, self._num_clusters))
+
         summed = posterior_probs.sum()
+        print(summed)
+        print(posterior_probs)
+        print(self._previous_log_likelihood)
 
         return posterior_probs / summed
 
