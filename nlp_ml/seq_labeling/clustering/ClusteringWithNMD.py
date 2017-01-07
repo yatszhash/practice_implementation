@@ -23,8 +23,13 @@ class ClusteringWithNMD:
         self._current_cluster_probs = None
         self._random_state = None
 
+        self._new_cluster_avgs = None
+        self._new_cluster_probs = None
+        self._new_std = None
+
         self._posterior_probs_on_param = None
 
+        self._joint_distribution = None
         self._previous_log_likelihood = -10000
 
         self._stop_threshold = 1e-4
@@ -60,11 +65,12 @@ class ClusteringWithNMD:
 
     def _each_step(self):
         self._update_all_posterior_probs()
-        self._update_params()
+        self._compute_new_params()
+
+        self._update_all_joint_distribution()
 
         # TODO this is not correct liklihood
-        log_liklihood = np.log(self._posterior_probs_on_param.sum(axis=1)) \
-            .sum(axis=0)
+        log_liklihood = self._compute_logliklihood()
 
         if log_liklihood <= self._previous_log_likelihood:
             raise IllegalLearningException()
@@ -72,6 +78,8 @@ class ClusteringWithNMD:
         if log_liklihood - self._previous_log_likelihood \
                 <= self._stop_threshold:
             return True
+
+        self._update_params()
 
         return False
 
@@ -99,6 +107,10 @@ class ClusteringWithNMD:
     def _init_std(self):
         self._current_std = self._compute_new_std()
 
+    def _compute_logliklihood(self):
+        return np.log(self._joint_distribution.sum(axis=1)) \
+            .sum(axis=0)
+
     def _update_all_posterior_probs(self):
         # self._posterior_probs_on_param =
         self._posterior_probs_on_param = np.zeros((self._dataset_size,
@@ -106,9 +118,9 @@ class ClusteringWithNMD:
         x_indices = np.arange(self._dataset_size)
         for i in x_indices:
             self._posterior_probs_on_param[i, :] \
-                = self._update_posterior_prob_on_each_x(i)
+                = self._compute_posterior_prob_on_each_x(i)
 
-    def _update_posterior_prob_on_each_x(self, x_idx):
+    def _compute_posterior_prob_on_each_x(self, x_idx):
         vfunc = np.vectorize(lambda c_idx:
                              self._compute_posterior_prob(self._train_X[x_idx, :], c_idx))
         posterior_probs = np.apply_along_axis(vfunc, 1,
@@ -128,14 +140,37 @@ class ClusteringWithNMD:
             - np.linalg.norm(x - self._current_cluster_avgs[c_idx, :]) ** 2 \
             / (2 * self._current_std ** 2))
 
-    def _update_params(self):
-        new_cluster_avgs = self._comute_new_cluster_avgs()
-        new_std = self._compute_new_std()
-        new_cluster_probs = self._compute_new_cluster_prob()
+    def _update_all_joint_distribution(self):
+        self._joint_distribution = np.zeros((self._dataset_size,
+                                             self._num_clusters))
+        for x_idx in np.arange(self._dataset_size):
+            self._joint_distribution[x_idx, :] \
+                = self._compute_joint_distribution_on_each_x(x_idx)
 
-        self._current_cluster_avgs = new_cluster_avgs
-        self._current_std = new_std
-        self._current_cluster_probs = new_cluster_probs
+    def _compute_joint_distribution_on_each_x(self, x_idx):
+        vfunc = np.vectorize(lambda c_idx: self._compute_joint_distribution(
+            self._train_X[x_idx, :], c_idx
+        ))
+
+        return np.apply_along_axis(vfunc, 1,
+                                   np.arange(self._num_clusters)
+                                   .reshape(1, self._num_clusters))
+
+    def _compute_joint_distribution(self, x, c_idx):
+        return self._new_cluster_probs[0, c_idx] \
+               / (np.sqrt((2 * np.pi * self._new_std ** 2) ** self._dimension)) \
+               * np.exp(- np.linalg.norm(x - self._new_cluster_avgs[c_idx, :]) ** 2 \
+                        / (2 * self._new_std ** 2))
+
+    def _compute_new_params(self):
+        self._new_cluster_avgs = self._comute_new_cluster_avgs()
+        self._new_std = self._compute_new_std()
+        self._new_cluster_probs = self._compute_new_cluster_prob()
+
+    def _update_params(self):
+        self._current_cluster_avgs = self._new_cluster_avgs
+        self._current_std = self._new_std
+        self._current_cluster_probs = self._new_cluster_probs
 
     def _comute_new_cluster_avgs(self):
         return np.array([self._compute_cluster_avgs_each_cluster(c_idx)
@@ -159,7 +194,7 @@ class ClusteringWithNMD:
 
         each_cluster_diff_sum = \
             np.apply_along_axis(diff_sum, axis=1,
-                                arr=self._current_cluster_avgs)
+                                arr=self._new_cluster_avgs)
 
         all_diff_sum = np.sum(each_cluster_diff_sum, axis=0)
 

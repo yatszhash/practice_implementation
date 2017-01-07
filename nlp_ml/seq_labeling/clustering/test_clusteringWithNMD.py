@@ -136,3 +136,49 @@ class TestClusteringWithNMD(TestCase):
         actual = sut._compute_new_cluster_prob()
 
         np.testing.assert_array_almost_equal(actual, expected)
+
+    def test__update_all_joint_distribution(self):
+        sut = ClusteringWithNMD()
+        sut._train_X = np.array([[1, 4, 7, 10],
+                                 [2, 5, 8, 11],
+                                 [3, 6, 9, 12]])
+
+        sut._dimension = 4
+        sut._dataset_size = 3
+        sut._num_clusters = 2
+        sut._new_cluster_avgs = np.array([[2, 5, 8, 11],
+                                          [1, 4, 7, 10]])
+
+        sut._new_cluster_probs = np.array([[1 / 3, 2 / 3]])
+        sut._new_std = 2
+
+        expected = np.array([
+            [1 / (192 * np.pi ** 2) * np.exp(- 1 / 2), 1 / 96 / np.pi ** 2],
+            [1 / (192 * np.pi ** 2), 1 / 96 * np.exp(-1 / 2) / np.pi ** 2],
+            [1 / (192 * np.pi ** 2) * np.exp(- 1 / 2),
+             1 / 96 * np.exp(- 2) / np.pi ** 2]
+        ])
+
+        sut._update_all_joint_distribution()
+
+        np.testing.assert_array_almost_equal(
+            sut._joint_distribution, expected)
+
+    def test__compute_logliklihood(self):
+        sut = ClusteringWithNMD()
+
+        sut._dimension = 4
+        sut._dataset_size = 3
+        sut._num_clusters = 2
+
+        sut._joint_distribution = np.array([
+            [1 / 4, 1 / 4],
+            [1 / 3, 1 / 3],
+            [1 / 5, 1 / 5]
+        ])
+
+        expected = - 2.01490302054
+
+        actual = sut._compute_logliklihood()
+
+        np.testing.assert_almost_equal(actual, expected)
