@@ -3,7 +3,7 @@ from unittest import mock
 
 import numpy as np
 
-from seq_labeling.clustering.ClusteringWithNMD import ClusteringWithNMD
+from seq_labeling.clustering.ClusteringWithGMM import ClusteringWithGMM
 
 
 def mock_random_rand(r_num, c_num):
@@ -15,8 +15,8 @@ class TestClusteringWithNMD(TestCase):
         self.fail()
 
     @mock.patch('numpy.random.rand', mock_random_rand)
-    def test__init_avgs_stds(self):
-        sut = ClusteringWithNMD()
+    def test__init_avgs(self):
+        sut = ClusteringWithGMM()
         sut._train_X = np.array([[1, 4, 7, 10],
                                  [2, 5, 8, 11],
                                  [3, 6, 9, 12]])
@@ -42,7 +42,7 @@ class TestClusteringWithNMD(TestCase):
     def test__compute_std(self):
         expected = np.sqrt(7 / 6)
 
-        sut = ClusteringWithNMD()
+        sut = ClusteringWithGMM()
         sut._train_X = np.array([[1, 4, 7, 10],
                                  [2, 5, 8, 11],
                                  [3, 6, 9, 12]])
@@ -53,12 +53,12 @@ class TestClusteringWithNMD(TestCase):
         sut._current_cluster_avgs = np.array([[2, 5, 8, 11],
                                               [1, 4, 7, 10]])
 
-        sut._init_std()
+        sut._init_covariances()
         np.testing.assert_array_almost_equal(
-            sut._current_std, expected)
+            sut._current_stds, expected)
 
     def test__update_all_posterior_probs(self):
-        sut = ClusteringWithNMD()
+        sut = ClusteringWithGMM()
         sut._train_X = np.array([[1, 4, 7, 10],
                                  [2, 5, 8, 11],
                                  [3, 6, 9, 12]])
@@ -70,7 +70,7 @@ class TestClusteringWithNMD(TestCase):
                                               [1, 4, 7, 10]])
 
         sut._current_cluster_probs = np.array([[1 / 3, 2 / 3]])
-        sut._current_std = 2
+        sut._current_covariances = np.array([4, 4])
 
         sut._update_all_posterior_probs()
 
@@ -80,11 +80,11 @@ class TestClusteringWithNMD(TestCase):
              [np.exp(- 1 / 2) / (np.exp(-1 / 2) + 2 * np.exp(-2)),
               2 * np.exp(-2) / (np.exp(-1 / 2) + 2 * np.exp(-2))]])
 
-        np.testing.assert_array_almost_equal(sut._posterior_probs_on_param,
+        np.testing.assert_array_almost_equal(sut._posterior_probs,
                                              expected)
 
-    def test__compute_new_cluster_avgs(self):
-        sut = ClusteringWithNMD()
+    def test__compute_new_avgs(self):
+        sut = ClusteringWithGMM()
         sut._train_X = np.array([[1, 4, 7, 10],
                                  [2, 5, 8, 11],
                                  [3, 6, 9, 12]])
@@ -92,28 +92,25 @@ class TestClusteringWithNMD(TestCase):
         sut._dimension = 4
         sut._dataset_size = 3
         sut._num_clusters = 2
-        sut._current_cluster_avgs = np.array([[2, 5, 8, 11],
-                                              [1, 4, 7, 10]])
 
-        sut._current_cluster_probs = np.array([[1 / 3, 2 / 3]])
-        sut._current_std = 2
-        sut._posterior_probs_on_param = np.array([
+        sut._current_covariances = np.array([4, 4])
+        sut._posterior_probs = np.array([
             [1 / 2, 1 / 2],
             [1 / 4, 3 / 4],
             [2 / 5, 3 / 5]
         ])
 
         expected = np.array([
-            [-1 / 40, -1 / 40, -1 / 40, -1 / 40],
-            [39 / 80, 39 / 80, 39 / 80, 39 / 80]
+            [44 / 23, 113 / 23, 182 / 23, 251 / 23],
+            [76 / 37, 187 / 37, 298 / 37, 409 / 37]
         ])
 
-        actual = sut._comute_new_cluster_avgs()
+        actual = sut._compute_new_avgs()
 
         np.testing.assert_array_almost_equal(actual, expected)
 
     def test__compute_new_cluster_prob(self):
-        sut = ClusteringWithNMD()
+        sut = ClusteringWithGMM()
         sut._train_X = np.array([[1, 4, 7, 10],
                                  [2, 5, 8, 11],
                                  [3, 6, 9, 12]])
@@ -122,8 +119,8 @@ class TestClusteringWithNMD(TestCase):
         sut._dataset_size = 3
         sut._num_clusters = 2
 
-        sut._current_std = 2
-        sut._posterior_probs_on_param = np.array([
+        sut._current_covariances = np.array([4, 4])
+        sut._posterior_probs = np.array([
             [1 / 2, 1 / 2],
             [1 / 4, 3 / 4],
             [2 / 5, 3 / 5]
@@ -138,7 +135,7 @@ class TestClusteringWithNMD(TestCase):
         np.testing.assert_array_almost_equal(actual, expected)
 
     def test__update_all_joint_distribution(self):
-        sut = ClusteringWithNMD()
+        sut = ClusteringWithGMM()
         sut._train_X = np.array([[1, 4, 7, 10],
                                  [2, 5, 8, 11],
                                  [3, 6, 9, 12]])
@@ -146,11 +143,11 @@ class TestClusteringWithNMD(TestCase):
         sut._dimension = 4
         sut._dataset_size = 3
         sut._num_clusters = 2
-        sut._new_cluster_avgs = np.array([[2, 5, 8, 11],
-                                          [1, 4, 7, 10]])
+        sut._new_avgs = np.array([[2, 5, 8, 11],
+                                  [1, 4, 7, 10]])
 
         sut._new_cluster_probs = np.array([[1 / 3, 2 / 3]])
-        sut._new_std = 2
+        sut._new_covariances = np.array([4, 4])
 
         expected = np.array([
             [1 / (192 * np.pi ** 2) * np.exp(- 1 / 2), 1 / 96 / np.pi ** 2],
@@ -165,7 +162,7 @@ class TestClusteringWithNMD(TestCase):
             sut._joint_distribution, expected)
 
     def test__compute_logliklihood(self):
-        sut = ClusteringWithNMD()
+        sut = ClusteringWithGMM()
 
         sut._dimension = 4
         sut._dataset_size = 3
@@ -179,6 +176,31 @@ class TestClusteringWithNMD(TestCase):
 
         expected = - 2.01490302054
 
-        actual = sut._compute_logliklihood()
+        actual = sut._compute_log_liklihood()
 
         np.testing.assert_almost_equal(actual, expected)
+
+    def test_compute_new_covariances(self):
+        sut = ClusteringWithGMM()
+        sut._train_X = np.array([[1, 4, 7, 10],
+                                 [2, 5, 8, 11],
+                                 [3, 6, 9, 12]])
+
+        sut._dimension = 4
+        sut._dataset_size = 3
+        sut._num_clusters = 2
+
+        sut._posterior_probs = np.array([
+            [1 / 2, 1 / 2],
+            [1 / 4, 3 / 4],
+            [2 / 5, 3 / 5]
+        ])
+
+        sut._new_avgs = np.array([[2, 5, 8, 11],
+                                  [1, 4, 7, 10]])
+
+        expected = np.array([72 / 23, 252 / 37])
+
+        actual = sut._compute_new_covariances()
+
+        np.testing.assert_array_almost_equal(actual, expected)

@@ -1,12 +1,10 @@
-import logging
-
 from sklearn import cross_validation
 from sklearn import datasets
 from sklearn.preprocessing import StandardScaler
 
-logging.basicConfig(filename="../../../nmd_iris.log", level=logging.DEBUG)
-logging.info("=========Started=======")
 iris = datasets.load_iris()
+
+iris
 
 X = iris['data']
 
@@ -18,9 +16,8 @@ Y = iris['target']
 
 random_state = 10
 
-train_X, test_X, train_Y, test_Y = \
-    cross_validation.train_test_split \
-        (X, Y, test_size=0.2, random_state=random_state)
+train_X, test_X, train_Y, test_Y = cross_validation.train_test_split(
+    X, Y, test_size=0.2, random_state=random_state)
 
 import numpy as np
 
@@ -32,23 +29,20 @@ init_params = 'random'
 
 max_iter = 10000
 
-import sys
+from sklearn.mixture import GaussianMixture
 
-sys.path.append("../../")
+estimator = GaussianMixture(n_components=n_classes,
+                            covariance_type=cov_type,
+                            init_params=init_params, max_iter=max_iter,
+                            random_state=0)
 
-import seq_labeling.clustering.ClusteringWithGMM as GMMCluster
+estimator.fit(train_X)
 
-import importlib
+colors = ['navy', 'turqoise', 'darkorange']
 
-importlib.reload(GMMCluster)
+Y_train_pred = estimator.predict(train_X)
 
-clf = GMMCluster.ClusteringWithGMM()
-
-clf.fit(train_X, num_clusters=n_classes, random_state=None)
-
-Y_train_pred = clf.predict(train_X)
-
-print(clf._posterior_probs)
+Y_train_pred[:10]
 
 import itertools
 
@@ -58,6 +52,8 @@ labels = np.unique(Y_train_pred.ravel())
 
 for element in itertools.permutations(labels, 3):
     print(element)
+
+train_Y
 
 train_accuracy = 0
 actual_label = None
@@ -70,9 +66,9 @@ for element in itertools.permutations(labels, 3):
         train_accuracy = temp_train_accuracy
         actual_label = element
 
-print("train accuracy : {}".format(train_accuracy))
+print(train_accuracy)
 
-Y_test_pred = clf.predict(test_X)
+Y_test_pred = estimator.predict(test_X)
 
 vfunc = np.vectorize(lambda y: exchange_label(y, actual_label))
 
@@ -80,6 +76,4 @@ Y_test_pred_label = vfunc(Y_test_pred.ravel())
 
 test_accuracy = np.mean(Y_test_pred_label == test_Y.ravel()) * 100
 
-print("test accuracy : {}".format(test_accuracy))
-
-logging.info("============Finish======")
+print(test_accuracy)
