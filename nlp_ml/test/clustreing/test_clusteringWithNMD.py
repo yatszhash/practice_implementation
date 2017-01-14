@@ -9,8 +9,10 @@ from seq_labeling.clustering.ClusteringWithGMM import ClusteringWithGMM
 def mock_random_rand(r_num, c_num):
     return np.ones((r_num, c_num))
 
-
 class TestClusteringWithNMD(TestCase):
+    '''
+    TODO not fixed test
+    '''
     def test_fit(self):
         self.fail()
 
